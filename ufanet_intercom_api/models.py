@@ -64,6 +64,16 @@ class Camera(BaseModel):
     @property
     def rtsp_url(self) -> str:
         return f"rtsp://{self.servers.domain}/{self.number}?token={self.token_l}"
+    @computed_field
+    @property
+    def screenshot_url(self) -> str:
+        return f"https://{self.servers.screenshot_domain}/api/v0/screenshots/{self.number}~600.jpg?token={self.token_l}"
+
+class Contract(BaseModel):
+    id: str
+    enabled: bool
+    balance: int
+    limit: int
 
 
 class HistoryResult(BaseModel):

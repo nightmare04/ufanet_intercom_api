@@ -2,6 +2,7 @@ import asyncio
 import logging
 import ssl
 from json.decoder import JSONDecodeError
+from tkinter import Image
 from typing import (Any,
                     Dict,
                     List,
@@ -23,6 +24,7 @@ from .exceptions import (ClientConnectorUfanetIntercomAPIError,
                          UnknownUfanetIntercomAPIError)
 from .logger import SafeLogger
 from .models import (Camera,
+                     Contract,
                      History,
                      HistoryData,
                      Intercom,
@@ -43,7 +45,7 @@ class UfanetIntercomAPI:
                                                     timeout=ClientTimeout(total=timeout))
 
     async def _send_request(self, url: str, method: str = 'GET', params: Dict[str, Any] = None,
-                            json: Dict[str, Any] = None) -> Union[Dict[str, Any], List[Dict[str, Any]], None]:
+                            json: Dict[str, Any] = None) -> Union[Dict[str, Any], List[Dict[str, Any]], bytes, None]:
 
         while True:
             headers = {'Authorization': f'JWT {self._token}'}
@@ -64,6 +66,9 @@ class UfanetIntercomAPI:
                         raise UnauthorizedUfanetIntercomAPIError(json_response)
 
                     if response.status in (200,):
+                        if response.headers.get('content-type') == 'image/jpeg':
+                            self._logger.info('Response=%s get image success', request_id)
+                            return await response.read()
                         self._logger.info('Response=%s json_response=%s', request_id, json_response)
                         return json_response
 
@@ -109,6 +114,11 @@ class UfanetIntercomAPI:
         response = await self._send_request(url=url)
         return [Camera(**i) for i in response]
 
+    async def get_camera_screenshot(self, camera: Camera) -> bytes | None:
+        url = camera.screenshot_url
+        response = await self._send_request(url=url)
+        return response
+
     async def get_intercoms(self) -> List[Intercom]:
         url = urljoin(self._base_url, 'api/v0/skud/shared/')
         response = await self._send_request(url=url)
@@ -130,6 +140,11 @@ class UfanetIntercomAPI:
         json = {'uuid': str(uuid)}
         response = await self._send_request(url=url, method='POST', json=json)
         return HistoryData(**response)
+
+    async def get_contract(self):
+        url = urljoin(self._base_url, 'api/v0/contract')
+        response = await self._send_request(url=url)
+        return Contract(**response)
 
     async def close(self):
         await self.session.close()
